@@ -38,6 +38,31 @@ what the tidyverse teams uses on their repositories, but is overkill
 for less widely used packages, which are better off using the simpler
 quickstart CI workflow.
 
+## Reproducible environment CI workflow
+
+This workflow configures a specific version of R on a specific runner, and
+recreates an environment based on a snapshot created by the `renv` package.
+It then runs R CMD check via the [rcmdcheck](https://github.com/r-lib/rcmdcheck)
+package.
+
+1. You want to ensure reproducibility with a specific operating system and
+version of R, and consistent package versions.
+2. Your package has a lockfile created with the `renv` environment.
+
+```{r echo = FALSE, results = "asis"}
+print_yaml("check-reproducible.yaml")
+```
+
+### When can it be used?
+
+1. You have a simple R package
+2. There is no OS-specific code
+3. You want a quick start with R CI
+
+```{r echo = FALSE, results = "asis"}
+print_yaml("check-release.yaml")
+```
+
 ## When it can be used?
 
 1. You have a complex R package

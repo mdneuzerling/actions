@@ -46,6 +46,95 @@ tidyverse teams uses on their repositories, but is overkill for less
 widely used packages, which are better off using the simpler quickstart
 CI workflow.
 
+## Reproducible environment CI workflow
+
+This workflow configures a specific version of R on a specific runner,
+and recreates an environment based on a snapshot created by the `renv`
+package. It then runs R CMD check via the
+[rcmdcheck](https://github.com/r-lib/rcmdcheck) package.
+
+1.  You want to ensure reproducibility with a specific operating system
+    and version of R, and consistent package versions.
+2.  Your package has a lockfile created with the `renv` environment.
+
+<!-- end list -->
+
+``` yaml
+on: [push, pull_request]
+
+name: R-CMD-check
+
+jobs:
+  R-CMD-check:
+    runs-on: ${{ matrix.config.os }}
+
+    strategy:
+      matrix:
+        config:
+        - { os: ubuntu-18.04, r: '3.6.1'}
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: r-lib/actions/setup-r@master
+        with:
+            r-version: ${{ matrix.config.r }}
+
+      - name: Query dependencies
+        run: Rscript -e "install.packages('remotes')" -e "saveRDS(remotes::dev_package_deps(dependencies = TRUE), 'depends.Rds')"
+
+      - name: Install system dependencies
+        if: runner.os == 'Linux'
+        env:
+          RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
+        run: |
+          Rscript -e "remotes::install_github('r-hub/sysreqs')"
+          sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
+          sudo -s eval "$sysreqs"
+
+      - name: Cache R packages
+        if: runner.os != 'Windows'
+        uses: actions/cache@v1
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-${{ matrix.config.r }}-${{ hashFiles('depends.Rds') }}
+          restore-keys: ${{ runner.os }}-r-${{ matrix.config.r }}-
+
+      - name: Install renv 0.9.2
+        run: Rscript -e "install.packages('https://cran.r-project.org/src/contrib/renv_0.9.2.tar.gz', repos = NULL, type = 'source')"
+
+      - name: Install rcmdcheck latest
+        run: Rscript -e "install.packages('rcmdcheck')"
+
+      - name: Check
+        run: Rscript -e "renv::restore();rcmdcheck::rcmdcheck(args = '--no-manual', error_on = 'error')"
+```
+
+### When can it be used?
+
+1.  You have a simple R package
+2.  There is no OS-specific code
+3.  You want a quick start with R CI
+
+<!-- end list -->
+
+``` yaml
+on: [push, pull_request]
+
+name: R-CMD-check
+
+jobs:
+  R-CMD-check:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: r-lib/actions/setup-r@master
+      - name: Install dependencies
+        run: Rscript -e "install.packages(c('remotes', 'rcmdcheck'))" -e "remotes::install_deps(dependencies = TRUE)"
+      - name: Check
+        run: Rscript -e "rcmdcheck::rcmdcheck(args = '--no-manual', error_on = 'error')"
+```
+
 ## When it can be used?
 
 1.  You have a complex R package
